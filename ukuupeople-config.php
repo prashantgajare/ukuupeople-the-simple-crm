@@ -68,7 +68,7 @@ function create_post_type() {
     	'rewrite'            => array('slug' => 'ukuupeople'),
 		'capability_type'    => 'ukuupeople',
     	'capabilities'       => ukuupeople_capabilities(),
-   	 	'map_meta_cap'       => false,
+    	'map_meta_cap'       => false,
 		'has_archive'        => true,
 		'hierarchical'       => false,
 		'menu_position'      => '',
@@ -218,6 +218,26 @@ function create_post_type() {
   	delete_option( 'simple_fields_groups' );
 }
 
+function ukuupeople_capabilities() {
+  return array(
+    'edit_post'              => 'edit_ukuupeople',
+    'read_post'              => 'read_ukuupeople',
+    'delete_post'            => 'delete_ukuupeople',
+    'edit_posts'             => 'access_ukuupeoples',
+    'edit_others_posts'      => 'edit_all_ukuupeoples',
+    'publish_posts'          => 'publish_ukuupeoples',
+    'read_private_posts'     => 'read_all_ukuupeoples',
+    'delete_posts'           => 'delete_own_ukuupeoples',
+    'delete_private_posts'   => 'delete_own_ukuupeoples',
+    'delete_published_posts' => 'delete_own_ukuupeoples',
+    'delete_others_posts'    => 'delete_all_ukuupeoples',
+    'edit_private_posts'     => 'edit_own_ukuupeoples',
+    'edit_published_posts'   => 'access_ukuupeoples',
+    'create_posts'           => 'access_ukuupeoples',
+  );
+}
+
+
 /**
  * Define the metabox and field configurations.
  */
@@ -246,8 +266,6 @@ function ukuu_register_contact_metabox() {
 
   add_fields( $actual_fields , $cmb_demo);
 }
-
-
 
 /**
  * Define the metabox and field configurations.

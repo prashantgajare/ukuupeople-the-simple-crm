@@ -138,6 +138,84 @@ class UkuuPeople{
      * add admin user to ukuupeople
      */
     add_action ('user_register', array( $this,"test"));
+    add_filter( 'map_meta_cap', array( $this, 'set_meta_cap_ukuupeople' ), 10, 4 );
+    add_filter( 'posts_clauses', array( $this, 'ukuupeople_query_clauses' ), 20, 1 );
+  }
+
+  /**
+   * Alter different parts of the query
+   *
+   * @param array $pieces
+   *
+   * @return array $pieces
+   */
+  function ukuupeople_query_clauses( $pieces ) {
+    global $wpdb;
+    $user_details = wp_get_current_user();
+    echo '<style>#post-clauses-dump { display: block; background-color: #777; color: #fff; white-space: pre-line; }</style>';
+    // >>>> Inspect & Debug the Query
+    // NEVER EVER show this to anyone other than an admin user - unless you're in your local installation
+    if(current_user_can('read_all_ukuupeoples') || current_user_can('edit_all_ukuupeoples') || current_user_can('delete_all_ukuupeoples') ) {
+      $pieces['where'] = "AND ( {$wpdb->postmeta}.meta_key = 'wpcf-email' ) AND {$wpdb->posts}.post_type = 'wp-type-contacts' AND ({$wpdb->posts}.post_status = 'publish' OR {$wpdb->posts}.post_status = 'future' OR {$wpdb->posts}.post_status = 'draft' OR {$wpdb->posts}.post_status = 'pending' OR {$wpdb->posts}.post_status = 'private' )";
+    } else {
+      $pieces['where'] = "AND ( {$wpdb->postmeta}.meta_key = 'wpcf-email' ) AND {$wpdb->posts}.post_type = 'wp-type-contacts' AND ({$wpdb->posts}.post_status = 'publish' OR {$wpdb->posts}.post_status = 'future' OR {$wpdb->posts}.post_status = 'draft' OR {$wpdb->posts}.post_status = 'pending' OR {$wpdb->posts}.post_status = 'private' ) AND ( {$wpdb->posts}.post_author = {$user_details->ID} OR {$wpdb->postmeta}.meta_value = '{$user_details->data->user_email}' )";
+    }
+    return $pieces;
+  }
+
+  function set_meta_cap_ukuupeople( $caps, $cap, $user_id, $args ) {
+    if ( 'edit_ukuupeople' == $cap || 'delete_ukuupeople' == $cap || 'read_ukuupeople' == $cap ) {
+      $post = get_post( $args[0] );
+      $post_type = get_post_type_object( $post->post_type );
+      /* Set an empty array for the caps. */
+      $caps = array();
+    }
+
+    if ( 'read_ukuupeople' == $cap ) {
+      if ( $user_id == $post->post_author || $user_id == 1 || current_user_can( 'read_all_ukuupeoples')) {
+        $caps[] = 'read';
+      } else {
+        $current_user_email = wp_get_current_user()->user_email;
+        $post_author_email = get_post_meta( $args[0], 'wpcf-email', TRUE );
+        if ( $current_user_email == $post_author_email ) {
+          $caps[] = 'read';
+        } else {
+          return false;
+        }
+      }
+    } elseif ( 'edit_ukuupeople' == $cap ) {
+      if ( ( $user_id == $post->post_author && current_user_can('edit_own_ukuupeoples') ) || current_user_can('edit_all_ukuupeoples') || $user_id == 1  )
+        $caps[] = $post_type->cap->edit_posts;
+      else {
+        $current_user_email = wp_get_current_user()->user_email;
+        $post_author_email = get_post_meta( $args[0], 'wpcf-email', TRUE );
+        if ( $current_user_email == $post_author_email ) {
+          $caps[] = 'read';
+        } else {
+          return false;
+        }
+      }
+    } elseif ( 'delete_ukuupeople' == $cap ) {
+      if ( $user_id == 1 || current_user_can( 'delete_all_ukuupeoples' ) )
+        $caps[] = $post_type->cap->delete_others_posts;
+      elseif ( $user_id == $post->post_author && current_user_can('delete_own_ukuupeoples') )
+        $caps[] = $post_type->cap->delete_posts;
+      else {
+        $current_user_email = wp_get_current_user()->user_email;
+        $post_author_email = get_post_meta( $args[0], 'wpcf-email', TRUE );
+        if ( $current_user_email == $post_author_email ) {
+          $caps[] = 'read';
+        } else {
+          return false;
+        }
+      }
+    }
+
+    /* if($cap == 'edit_posts') { */
+    /*   print_r($caps); */
+    /*   return array(); */
+    /* } */
+    return $caps;
   }
 
   function test() {
@@ -541,16 +619,18 @@ class UkuuPeople{
   }
 
   function ukuupeople_menu() {
-    add_submenu_page( NULL, __( 'Add New Contact', 'UkuuPeople' ), __( 'Add New Contact', 'UkuuPeople' ), 'manage_options', 'add-new-contact', array( $this, 'add_new_contact_type'));
-    add_submenu_page( 'edit.php?post_type=wp-type-contacts' , __( 'Touchpoint', 'UkuuPeople' ), __( 'Touchpoints', 'UkuuPeople' ), 'manage_options', 'edit.php?post_type=wp-type-activity', '');
+    add_submenu_page( 'edit.php?post_type=wp-type-contacts', __( 'Add New Contact', 'UkuuPeople' ), __( 'Add New Contact', 'UkuuPeople' ), 'access_ukuupeoples', 'add-new-contact', array( $this, 'add_new_contact_type'));
+    add_submenu_page( 'edit.php?post_type=wp-type-contacts' , __( 'Touchpoint', 'UkuuPeople' ), __( 'Touchpoints', 'UkuuPeople' ), 'edit_ukuutouchpoints', 'edit.php?post_type=wp-type-activity', '');
     require_once(UKUUPEOPLE_ABSPATH.'/includes/add-ons.php');
     $ukuupeople_add_ons_page = add_submenu_page( 'edit.php?post_type=wp-type-contacts', __( 'UkuuPeople Add-ons', 'UkuuPeople' ), __( 'Add-ons', 'UkuuPeople' ), 'install_plugins', 'ukuupeople-addons', 'ukuupeople_add_ons_page' );
     if ( current_user_can('manage_categories') ) {
       require_once( UKUUPEOPLE_ABSPATH.'/includes/settings.php' );
-      add_submenu_page('edit.php?post_type=wp-type-contacts', __( 'setting', 'UkuuPeople' ), __( 'Settings', 'UkuuPeople' ), 'manage_options','settings' , 'settings');
-      add_submenu_page( null, '', 'Google App Integration', 'manage_options', 'licenses', 'licenses' );
-      add_submenu_page( NULL , '', 'googleapp', 'manage_options', 'googleapp', 'googleapp' );
+      add_submenu_page('edit.php?post_type=wp-type-contacts', __( 'setting', 'UkuuPeople' ), __( 'Settings', 'UkuuPeople' ), 'access_ukuupeoples','settings' , 'settings');
+      add_submenu_page( null, '', 'Google App Integration', 'access_ukuupeoples', 'licenses', 'licenses' );
+      add_submenu_page( NULL , '', 'googleapp', 'access_ukuupeoples', 'googleapp', 'googleapp' );
     }
+
+    add_submenu_page( NULL , '', 'View Ukuu People', 'access_ukuupeoples', 'view-ukuupeople', array($this,'view_ukuu_people') );
   }
 
   function ukuuCRM_dashboard_setup() {
@@ -1607,24 +1687,29 @@ class UkuuPeople{
             $_wpnonce = wp_create_nonce( 'untrash-post_' . $ids );
             $url = admin_url( 'post.php?post=' . $ids . '&action=untrash&_wpnonce=' . $_wpnonce ); ?>
             <div class="row-actions">
-            <?php if ( current_user_can('edit_post', $ids) ) { ?>
+            <?php if ( current_user_can('delete_ukuupeople', $ids) ) { ?>
             <span class="untrash"><a href="<?php echo $url; ?>" title="<?php _e( 'Restore this item from the Trash','UkuuPeople' ); ?> "><?php _e( 'Restore','UkuuPeople' ); ?></a>
             <?php } ?>
-            <?php if ( current_user_can('delete_post', $ids) ) { ?>
+            <?php if ( current_user_can('delete_ukuupeople', $ids) ) { ?>
             |</span><span class="delete"><a class="submitdelete" href="<?php echo $permDeleteURL; ?>" title="<?php _e( 'Delete this item permanently','UkuuPeople' ); ?>"><?php _e( 'Delete Permanently', 'UkuuPeople' ); ?></a></span>
             <?php } else echo "</span>"; ?>
             </div><?php
           }
           else { ?>
             <div class="row-actions">
-            <?php if ( current_user_can('edit_post', $ids) ) { ?>
-            <span class="edit"><a title="Edit this item" href="<?php echo $URL; ?>"><?php _e( 'View', 'UkuuPeople' ); ?></a>|</span>
+              <?php if ( current_user_can('edit_ukuupeople', $ids) ) { ?>
+            <span class="edit"><a title="Edit this item" href="<?php echo $URL; ?>"><?php _e( 'Edit', 'UkuuPeople' ); ?></a>|</span>
             <span class="inline hide-if-no-js"><a class="editinline" title="Edit this item inline" href="#"><?php _e( 'Quick Edit', 'UkuuPeople' ); ?></a>
             <?php } ?>
-            <?php if ( current_user_can('delete_post', $ids) ) { ?>
+            <?php if ( current_user_can('delete_ukuupeople', $ids) ) { ?>
             |</span><span class="trash"><a class="submitdelete" href="<?php echo $deleteURL; ?>" title="<?php _e( 'Move this item to the Trash', 'UkuuPeople' ); ?>"><?php _e( 'Trash', 'UkuuPeople' ); ?></a></span>
             <?php } else echo "</span>"; ?>
-            </div><?php
+            <?php
+            // View Ukuupeople COde
+            if ( current_user_can('read_ukuupeople', $ids) ) { ?>
+            |<span class="view"><a title="View this item" href="<?php echo admin_url('admin.php?page=view-ukuupeople&cid='.$ids); ?>"><?php _e( 'View', 'UkuuPeople' ); ?></a></span>
+            <?php }
+            echo '</div>'; // row-actions closed
           }
         }
         break;
@@ -2417,4 +2502,18 @@ class UkuuPeople{
     wp_delete_post($postID);
   }
 
+  function view_ukuu_people( ) {
+ if( ! isset( $_GET['cid'] ) ||  $_GET['cid'] == NULL )
+   return;
+
+    $id = $_GET['cid'];
+ $people_object = get_post( $_GET['cid'] );
+
+ if ( isset ( $people_object->post_type ) && $people_object->post_type == 'wp-type-contacts' ) {
+      wp_enqueue_style( 'ukuupeople-style', UKUUPEOPLE_ABSPATH.'/css/ukuupeople.css');
+   require_once( 'view-ukuupeople.php' );
+ }
+    else
+      echo 'Ukuupeople doesnot exist';
+  }
 }
